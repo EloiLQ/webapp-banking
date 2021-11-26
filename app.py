@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import shap
+import lightgbm
 
 import plotly.express as px
 import plotly.io as pio
