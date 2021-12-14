@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import pickle
 import shap
-import lightgbm
 
 import plotly.express as px
 import plotly.io as pio
@@ -28,7 +27,7 @@ if rad_who == 'Dashboard':
     
     @st.cache
     def load_data(nrows):
-    	data = pd.read_csv(DATA_DIR_PATH + 'Xpred_test_sub.csv', nrows=nrows, index_col = 0)
+    	data = pd.read_csv(DATA_DIR_PATH + 'Xpred_test_sub_2.csv', nrows=nrows, index_col = 0)
     	return data
 
     # charge 500 clients
@@ -36,7 +35,7 @@ if rad_who == 'Dashboard':
 
     @st.cache
     def load_shap():
-    	shap = pd.read_csv(DATA_DIR_PATH + 'shap_values_sub.csv', index_col = 0)
+    	shap = pd.read_csv(DATA_DIR_PATH + 'shap_values_sub_2.csv', index_col = 0)
     	return shap
     
     # valeurs de shap associées au clients
@@ -136,49 +135,59 @@ if rad_who == 'Dashboard':
     st.header('Interprétation Globale')
     st.write('Importance des variables du modèles pour identifier les clients aux défauts de paiement.')
     
-    # sélection des variables d'entrée
-    df_v = data.drop(['score', 'note'], axis = 1)
-    
-    feature_list = df_v.columns
-    
-    # détermine le signe de la corrélation shap value et feature value 
-    corr_list = list()
-    # boucle sur les variables d'entrée
-    for feat in feature_list:
-        # retire les clients dont variable n'est pas renseignée (NaN)
-        mask_notna = df_v[feat].notna()
-        X_tmp = df_v[feat][mask_notna]
+    ## sélection des variables d'entrée
+    #df_v = data.drop(['score', 'note'], axis = 1)
+    #
+    #feature_list = df_v.columns
+    #
+    ## détermine le signe de la corrélation shap value et feature value 
+    #corr_list = list()
+    ## boucle sur les variables d'entrée
+    #for feat in feature_list:
+    #    # retire les clients dont variable n'est pas renseignée (NaN)
+    #    mask_notna = df_v[feat].notna()
+    #    X_tmp = df_v[feat][mask_notna]
 
-        shapi_tmp = shap_values[feat]
-        idx_tmp = mask_notna[mask_notna].index
-        shapi_tmp = shapi_tmp.loc[idx_tmp]
+    #    shapi_tmp = shap_values[feat]
+    #    idx_tmp = mask_notna[mask_notna].index
+    #    shapi_tmp = shapi_tmp.loc[idx_tmp]
 
-        # calcul du coefficient de corrélation
-        b = np.corrcoef(shapi_tmp,X_tmp)[1][0]
-        corr_list.append(b)
+    #    # calcul du coefficient de corrélation
+    #    b = np.corrcoef(shapi_tmp,X_tmp)[1][0]
+    #    corr_list.append(b)
 
-    corr_df = pd.concat([pd.Series(feature_list),pd.Series(corr_list)],axis=1).fillna(0)
+    #corr_df = pd.concat([pd.Series(feature_list),pd.Series(corr_list)],axis=1).fillna(0)
 
-    # Make a data frame. Column 1 is the feature, and Column 2 is the correlation coefficient
-    corr_df.columns  = ['Variable','Corr']
-    corr_df['Contribution'] = np.where(corr_df['Corr']>0,'positive','negative')
-    
-    shap_abs = np.abs(shap_values)
+    ## Make a data frame. Column 1 is the feature, and Column 2 is the correlation coefficient
+    #corr_df.columns  = ['Variable','Corr']
+    #corr_df['Contribution'] = np.where(corr_df['Corr']>0,'positive','negative')
+    #
+    #shap_abs = np.abs(shap_values)
 
-    # l'importance d'une variable définie comme la moyenne des |valeurs de Shapley|
-    k=pd.DataFrame(shap_abs.mean()).reset_index()
-    k.columns = ['Variable','SHAP_abs']
-    k2 = k.merge(corr_df,left_on = 'Variable',right_on='Variable',how='inner')
-    
-    k2 = k2[k2["SHAP_abs"]!=0].tail(40)
-    
-    
-    fig3 = px.bar(k2, x = 'SHAP_abs', y = 'Variable', 
-                 color = 'Contribution', orientation='h')
-    fig3.update_layout(height = 680,
-                     yaxis_title_text = '',
-                     xaxis_title_text = '|shap values| mean')
+    ## l'importance d'une variable définie comme la moyenne des |valeurs de Shapley|
+    #k=pd.DataFrame(shap_abs.mean()).reset_index()
+    #k.columns = ['Variable','SHAP_abs']
+    #k2 = k.merge(corr_df,left_on = 'Variable',right_on='Variable',how='inner')
+    #
+    #k2 = k2[k2["SHAP_abs"]!=0].tail(40)
+    #
+    #
+    #fig3 = px.bar(k2, x = 'SHAP_abs', y = 'Variable', 
+    #             color = 'Contribution', orientation='h')
+    #fig3.update_layout(height = 680,
+    #                 yaxis_title_text = '',
+    #                 xaxis_title_text = '|shap values| mean')
+    #fig3.update_yaxes(categoryorder = 'total ascending')
+
+
+    MODEL_DIR_PATH = 'model/'
+    model = pickle.load(open(MODEL_DIR_PATH + 'lgbm_2.pkl',"rb"))
+
+    fig3 = px.bar(x = model.feature_importances_, y = model.feature_name_)
     fig3.update_yaxes(categoryorder = 'total ascending')
+    fig3.update_layout(xaxis_title_text = 'Feature importance',
+                       yaxis_title_text = 'Model Feature',
+                       height = 680)
     
     st.plotly_chart(fig3)
 
@@ -195,7 +204,7 @@ if rad_who == 'Predictor':
     st.text("")
 
     # chargement du modèle statistique 
-    model = pickle.load(open(MODEL_DIR_PATH + 'lgbm.pkl',"rb"))
+    model = pickle.load(open(MODEL_DIR_PATH + 'lgbm_2.pkl',"rb"))
     
     # demande pour une table .csv en entrée 
     uploaded_file = st.file_uploader("Choose a file")
